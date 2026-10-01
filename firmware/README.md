@@ -62,10 +62,16 @@ Measure with a scope/multimeter on the motor terminals or the IBT-2 inputs; the 
 4. `m 500 0` : GPIO25 shows 20 kHz PWM, duty ramping to ~50 % mapped; GPIO26 stays 0. `m -500 0`: swaps legs through 0. The transmitter command expires after 0.5 s (dead-man) unless resent.
 5. Link loss: send `m 800 800`, then power off the transmitter. Within 300 ms + 0.2 s ramp the PWM is 0 and EN_MCU (GPIO27) goes low. LED orange fast blink. Powering the transmitter again with `m 800 800` must NOT start anything; send `m 0 0` first.
 6. E-stop: press it while a command is active: LED red solid, 3 beeps, PWM 0. Release: needs neutral again.
-7. WDT_KICK (GPIO17): square wave ~50 Hz (toggle every 10 ms) on a scope while healthy. Verify the board hardware cuts EN_DRV when you stall the firmware (hold the control task by pulling the debugger/RESET is not a test; use a deliberate `while(1)` build) - test T6 of ERC-DRC-y-pruebas.
+7. WDT_KICK (GPIO17): square wave ~50 Hz (toggle every 10 ms) on a scope while healthy. Hardware watchdog (T6 of ERC-DRC-y-pruebas): use the bench sketches `tests/t6ac_kick_then_stop` (kicks 3 s, then stops: WDT_OK must fall 69-182 ms after the last rising edge, EN_DRV = 0 for >= 5 s) and `tests/t6b_no_kick` (never kicks, EN_MCU high: EN_DRV = 0 for >= 5 s). A `while(1)` build is NOT a valid test: it never arms.
 8. FLT_ANY / CS: with drivers on and no motor, short a CS node through a resistor to raise it > 1.18 V: FLT_ANY goes low, red blinks (1 or 2 flashes = channel), channel stops, latched until `c` + neutral.
 9. Battery: lower the supply to 9.8 V -> magenta double flash; below 9.6 V for 0.5 s -> motors disarm.
 10. Serial status line each second: `ctl_max` must stay near 10000 us, `late=0`, `sens_max` well under 10000 us (measure and write the number in the manual).
+
+## Folders: `tests/` vs `test/` vs `tools/`
+
+- `tests/` = bench SKETCHES for the board (`t6ac_kick_then_stop`, `t6b_no_kick`). Flash them with NO motors connected; never on the robot.
+- `test/` = unit tests that run on the PC (`run_tests.sh`, `test_hold_cmd.py`).
+- `tools/hold_cmd.py` = PC helper: `python firmware/tools/hold_cmd.py COM5 800 800 [--duration 30]` re-sends the command every 200 ms to the serial transmitter (115200 baud, port of the TRANSMITTER, needs `pip install pyserial`) and sends `s` on exit/Ctrl+C. Use it for tests that last longer than the 0.5 s dead-man (T7, T8, T9, T11, T12). Releasing it = motors at 0 within 0.5 s.
 
 ## Known limits (v1)
 
